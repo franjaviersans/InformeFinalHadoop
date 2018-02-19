@@ -34,9 +34,129 @@ component, formatting, style, styling, insert
 \end{IEEEkeywords}
 
 \section{Introduction}
-This document is a model and instructions for \LaTeX.
-Please observe the conference page limits. 
-cancióm
+
+
+\cite{MapReduceII08}
+\cite{GoogleFS03}
+\cite{BigTable08}
+\cite{Holmes12}
+
+
+\section{MapReduce}
+
+MapReduce is a programming model and an associated implementation for processing and generating big data sets~\cite{MapReduce04}
+
+
+A MapReduce program is composed of a Map() procedure (method) that performs filtering and sorting (such as sorting students by first name into queues, one queue for each name) and a Reduce() method that performs a summary operation (such as counting the number of students in each queue, yielding name frequencies). The "MapReduce System" (also called "infrastructure" or "framework") orchestrates the processing by marshalling the distributed servers, running the various tasks in parallel, managing all communications and data transfers between the various parts of the system, and providing for redundancy and fault tolerance.
+
+
+
+The computation takes a set of input key/value pairs, and
+produces a set of output key/value pairs. The user of
+the MapReduce library expresses the computation as two
+functions: Map and Reduce.
+
+
+Map, written by the user, takes an input pair and produces
+a set of intermediate key/value pairs. The MapReduce
+library groups together all intermediate values associated
+with the same intermediate key I and passes them
+to the Reduce function.
+
+
+The Reduce function, also written by the user, accepts
+an intermediate key I and a set of values for that key. It
+merges together these values to form a possibly smaller
+set of values. Typically just zero or one output value is
+produced per Reduce invocation. The intermediate values
+are supplied to the user’s reduce function via an iterator.
+This allows us to handle lists of values that are too
+large to fit in memory.
+
+\section{MapReduce para Hadoop}
+
+We realized that
+most of our computations involved applying a map operation
+to each logical “record” in our input in order to
+compute a set of intermediate key/value pairs, and then
+applying a reduce operation to all the values that shared
+the same key, in order to combine the derived data appropriately
+
+
+Our use of a functional model with userspecified
+map and reduce operations allows us to parallelize
+large computations easily and to use re-execution
+as the primary mechanism for fault tolerance
+
+Está inspirado en las primitivas de map y reduce presentes en Lisp y muchos otros lenguajes funcionales
+
+
+
+
+
+The key contributions of the MapReduce framework are not the actual map and reduce functions (which, for example, resemble the 1995 Message Passing Interface standard's[6] reduce[7] and scatter[8] operations), but the scalability and fault-tolerance achieved for a variety of applications by optimizing the execution engin
+
+As such, a single-threaded implementation of MapReduce will usually not be faster than a traditional (non-MapReduce) implementation; any gains are usually only seen with multi-threaded implementations
+
+
+The use of this model is beneficial only when the optimized distributed shuffle operation (which reduces network communication cost) and fault tolerance features of the MapReduce framework come into play. Optimizing the communication cost is essential to a good MapReduce algorithm
+
+
+"Map" step: Each worker node applies the "map()" function to the local data, and writes the output to a temporary storage. A master node ensures that only one copy of redundant input data is processed.
+"Shuffle" step: Worker nodes redistribute data based on the output keys (produced by the "map()" function), such that all data belonging to one key is located on the same worker node.
+"Reduce" step: Worker nodes now process each group of output data, per key, in parallel.
+
+
+
+Prepare the Map() input – the "MapReduce system" designates Map processors, assigns the input key value K1 that each processor would work on, and provides that processor with all the input data associated with that key value.
+Run the user-provided Map() code – Map() is run exactly once for each K1 key value, generating output organized by key values K2.
+"Shuffle" the Map output to the Reduce processors – the MapReduce system designates Reduce processors, assigns the K2 key value each processor should work on, and provides that processor with all the Map-generated data associated with that key value.
+Run the user-provided Reduce() code – Reduce() is run exactly once for each K2 key value produced by the Map step.
+Produce the final output – the MapReduce system collects all the Reduce output, and sorts it by K2 to produce the final outcome.
+
+
+
+The Map and Reduce functions of MapReduce are both defined with respect to data structured in (key, value) pairs. Map takes one pair of data with a type in one data domain, and returns a list of pairs in a different domain:
+
+Map(k1,v1)  list(k2,v2)
+
+The Map function is applied in parallel to every pair (keyed by k1) in the input dataset. This produces a list of pairs (keyed by k2) for each call. After that, the MapReduce framework collects all pairs with the same key (k2) from all lists and groups them together, creating one group for each key.
+
+The Reduce function is then applied in parallel to each group, which in turn produces a collection of values in the same domain:
+
+Reduce(k2, list (v2))  list(v3)
+
+Each Reduce call typically produces either one value v3 or an empty return, though one call is allowed to return more than one value. The returns of all calls are collected as the desired result list.
+
+Thus the MapReduce framework transforms a list of (key, value) pairs into a list of values. This behavior is different from the typical functional programming map and reduce combination, which accepts a list of arbitrary values and returns one single value that combines all the values returned by map.
+
+
+
+
+MapReduce programs are not guaranteed to be fast. The main benefit of this programming model is to exploit the optimized shuffle operation of the platform, and only having to write the Map and Reduce parts of the program. In practice, the author of a MapReduce program however has to take the shuffle step into consideration; in particular the partition function and the amount of data written by the Map function can have a large impact on the performance and scalability. Additional modules such as the Combiner function can help to reduce the amount of data written to disk, and transmitted over the network. MapReduce applications can achieve sub-linear speedups under specific circumstances.[15]
+
+When designing a MapReduce algorithm, the author needs to choose a good tradeoff[10] between the computation and the communication costs. Communication cost often dominates the computation cost,[10][15] and many MapReduce implementations are designed to write all communication to distributed storage for crash recovery.
+
+
+
+
+
+MapReduce Hadoop 
+
+
+Atop the file systems comes the MapReduce Engine, which consists of one JobTracker, to which client applications submit MapReduce jobs. The JobTracker pushes work to available TaskTracker nodes in the cluster, striving to keep the work as close to the data as possible. With a rack-aware file system, the JobTracker knows which node contains the data, and which other machines are nearby. If the work cannot be hosted on the actual node where the data resides, priority is given to nodes in the same rack. This reduces network traffic on the main backbone network. If a TaskTracker fails or times out, that part of the job is rescheduled. The TaskTracker on each node spawns a separate Java virtual machine (JVM) process to prevent the TaskTracker itself from failing if the running job crashes its JVM. A heartbeat is sent from the TaskTracker to the JobTracker every few minutes to check its status. The Job Tracker and TaskTracker status and information is exposed by Jetty and can be viewed from a web browser.
+
+Known limitations of this approach are:
+
+The allocation of work to TaskTrackers is very simple. Every TaskTracker has a number of available slots (such as "4 slots"). Every active map or reduce task takes up one slot. The Job Tracker allocates work to the tracker nearest to the data with an available slot. There is no consideration of the current system load of the allocated machine, and hence its actual availability.
+If one TaskTracker is very slow, it can delay the entire MapReduce job – especially towards the end, when everything can end up waiting for the slowest task. With speculative execution enabled, however, a single task can be executed on multiple slave nodes.
+
+
+
+
+
+Cloud Dataflow
+YARN
 
 
 \subsection{Equations}
